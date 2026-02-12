@@ -4,7 +4,7 @@
    Program:    TimeTracker
    \file       timetracker.c
    
-   \version    V0.1
+   \version    V0.2
    \date       12.02.26   
    \brief      Very simple time tracker
    
@@ -38,6 +38,7 @@
    Revision History:
    =================
    V0.1    12.02.26  Initial version with just one button
+   V0.2    12.02.26  Added Quit button
 
 *************************************************************************/
 /* Includes
@@ -224,7 +225,6 @@ static void output_state(GtkToggleButton *source, gpointer user_data)
       gTotalTime += (gStopTime - gStartTime);
       logtime(0);
 
-/*      printf("%d %d %d\n", (int)gStartTime, (int)gStopTime, (int)gTotalTime); */
       gtk_button_set_label(GTK_BUTTON(source), (gchar *)"Start");
       gtk_widget_set_name(GTK_WIDGET(source), "toggle_green");
    }
@@ -235,25 +235,37 @@ static void output_state(GtkToggleButton *source, gpointer user_data)
 static void activate(GtkApplication *app, gpointer user_data)
 {
    GtkWidget *window;
-   GtkWidget *box, *toggle;
+   GtkWidget *box_ss,   *toggle_ss;
+   GtkWidget *box_quit, *btn_quit;
    
    /* Create a window widget with title and size                        */
    window = gtk_application_window_new(app);
    gtk_window_set_title(GTK_WINDOW(window), "Time Tracker");
-   gtk_window_set_default_size(GTK_WINDOW(window), 100, 50);
-   
-   box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
-   
-   toggle = gtk_toggle_button_new_with_label("Start");
-   gtk_widget_set_name(toggle, "toggle_green");
-   
-   /* Call the output_state() function when button is toggled           */
-   g_signal_connect(toggle, "toggled", G_CALLBACK(output_state), NULL);
+   gtk_window_set_default_size(GTK_WINDOW(window), 100, 80);
+
+   /* Create the toggle box and button and all the output_state()
+      function when button is toggled
+   */ 
+   box_ss    = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
+   toggle_ss = gtk_toggle_button_new_with_label("Start");
+   g_signal_connect(toggle_ss, "toggled", G_CALLBACK(output_state), NULL);
+   gtk_widget_set_name(toggle_ss, "toggle_green");
+
+   /* Create the quit button and exit when it is clicked                */
+   box_quit = gtk_button_box_new(GTK_ORIENTATION_VERTICAL);
+   btn_quit = gtk_button_new_with_label("Quit");
+   g_signal_connect_swapped (btn_quit, "clicked",
+                             G_CALLBACK(gtk_widget_destroy), window);
+   gtk_widget_set_name(btn_quit, "btn_quit");
    
    /* Add the toggle to the box and then the box to the window          */
-   gtk_container_add(GTK_CONTAINER(box), toggle);
-   gtk_container_add(GTK_CONTAINER(window), box);
-   
+   gtk_container_add(GTK_CONTAINER(box_ss), toggle_ss);
+   gtk_container_add(GTK_CONTAINER(window), box_ss);
+
+   /* Add the quit button                                               */
+   gtk_container_add(GTK_CONTAINER(box_quit), btn_quit);
+   gtk_container_add(GTK_CONTAINER(window), box_quit);
+
    /* Show all the widgets                                              */
    gtk_widget_show_all(window);
 }
