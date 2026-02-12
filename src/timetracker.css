@@ -1,0 +1,16 @@
+#toggle_red {
+    background: #AA1111;
+    color: #EEEEEE;
+    font-family: DejaVu Sans, sans-serif;
+    font-style: normal;
+    font-weight: bold;
+    font-size: 20px;
+}
+#toggle_green {
+    background: #118811;
+    color: #EEEEEE;
+    font-family: DejaVu Sans, sans-serif;
+    font-style: normal;
+    font-weight: normal;
+    font-size: 20px;
+}
