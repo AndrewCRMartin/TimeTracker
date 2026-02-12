@@ -238,6 +238,17 @@ static void activate(GtkApplication *app, gpointer user_data)
    GtkWidget *grid;
    GtkWidget *toggle_ss;
    GtkWidget *btn_quit;
+   GtkWidget *label_project;
+   GtkWidget *label_task;
+   
+   /* Editable text
+      GtkWidget *view;
+      GtkTextBuffer *buffer;
+
+      view   = gtk_text_view_new();
+      buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(view));
+      gtk_text_buffer_set_text(buffer, getConfig(gConfig, "project"), -1);
+   */
    
    /* Create a window widget with title and size                        */
    window = gtk_application_window_new(app);
@@ -247,8 +258,16 @@ static void activate(GtkApplication *app, gpointer user_data)
    /* Create a grid to contain the layout and add it to the window      */
    grid = gtk_grid_new();
    gtk_container_add(GTK_CONTAINER(window), grid);
+
+   /* Create a text item containing the project name                    */
+   label_project = gtk_label_new(getConfig(gConfig, "project"));
+   gtk_widget_set_name(GTK_WIDGET(label_project), "label_project");
    
-   /* Create the toggle box and button and all the output_state()
+   /* Create a text item containing the task name                       */
+   label_task = gtk_label_new(getConfig(gConfig, "task"));
+   gtk_widget_set_name(GTK_WIDGET(label_task), "label_task");
+   
+   /* Create the toggle box and button and add the output_state()
       function when button is toggled
    */ 
    toggle_ss = gtk_toggle_button_new_with_label("Start");
@@ -260,12 +279,16 @@ static void activate(GtkApplication *app, gpointer user_data)
    g_signal_connect_swapped (btn_quit, "clicked",
                              G_CALLBACK(gtk_widget_destroy), window);
    gtk_widget_set_name(btn_quit, "btn_quit");
+
+   /* Add the text to the grid                                          */
+   gtk_grid_attach(GTK_GRID(grid), GTK_WIDGET(label_project), 0,0,3,1);
+   gtk_grid_attach(GTK_GRID(grid), GTK_WIDGET(label_task),    0,1,3,1);
    
    /* Add the toggle to the grid                                        */
-   gtk_grid_attach(GTK_GRID(grid), toggle_ss, 0,0,3,1);
+   gtk_grid_attach(GTK_GRID(grid), toggle_ss, 0,2,3,1);
 
    /* Add the quit button                                               */
-   gtk_grid_attach(GTK_GRID(grid), btn_quit, 1,1,1,1);
+   gtk_grid_attach(GTK_GRID(grid), btn_quit, 1,3,1,1);
 
    /* Show all the widgets                                              */
    gtk_widget_show_all(window);
