@@ -1,8 +1,8 @@
 TimeTracker
 ===========
 
-Andrew C.R.Martin (c) 2016
---------------------------
+Andrew C.R.Martin, abYinformatics (c) 2026
+------------------------------------------
 
 I was completely frustrated by the lack of a simple time tracker that
 met my needs for consultancy and contracting work. Everything I had
