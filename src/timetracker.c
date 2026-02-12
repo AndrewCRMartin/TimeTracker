@@ -58,6 +58,7 @@
 */
 time_t gTotalTime = (time_t)0;
 time_t gStartTime;
+time_t gStopTime;
 FILE   *gFpRecord = NULL;
 CONFIG *gConfig   = NULL;
 
@@ -65,7 +66,7 @@ CONFIG *gConfig   = NULL;
 /* Prototypes
 */
 int main(int argc, char **argv);
-static void logtime(int state, time_t theTime);
+static void logtime(int state);
 static void output_state(GtkToggleButton *source, gpointer user_data);
 static void activate(GtkApplication *app, gpointer user_data);
 static void ReadCSS(char *cssFile);
@@ -159,32 +160,47 @@ static void ReadCSS(char *cssFile)
 
 
 /************************************************************************/
-static void logtime(int state, time_t theTime)
+static void logtime(int state)
 {
    char *tString;
-   tString = ctime(&theTime);
-   TERMINATE(tString);
 
-   if(state)
+   if(state)   /* Start was pressed                                     */
    {
+      tString = ctime(&gStartTime);
+      TERMINATE(tString);
       printf("START: %s\n", tString);
       fprintf(gFpRecord,"\"%s\",", getConfig(gConfig, "project"));
       fprintf(gFpRecord,"\"%s\",", getConfig(gConfig, "task"));
       fprintf(gFpRecord,"\"%s\",", tString);
    }
-   else
+   else        /* Stop was pressed                                      */
    {
-      struct tm *pTm;
-      pTm = localtime(&gTotalTime);
+      struct tm *pTmTotal,
+                *pTmDiff;
+      time_t    diffTime = gStopTime - gStartTime;
+
+      tString = ctime(&gStopTime);
+      TERMINATE(tString);
 
       printf("STOP: %s; ", tString);
+
+      pTmDiff  = localtime(&diffTime);
+      printf("TIME: %02d:%02d:%02d; ",
+            pTmDiff->tm_hour - 1, pTmDiff->tm_min, pTmDiff->tm_sec);
+
+      pTmTotal = localtime(&gTotalTime);
       printf("TOTAL: %02d:%02d:%02d\n",
-            pTm->tm_hour - 1, pTm->tm_min, pTm->tm_sec);
+            pTmTotal->tm_hour - 1, pTmTotal->tm_min, pTmTotal->tm_sec);
       
       fprintf(gFpRecord,"\"%s\",", tString);
+      pTmDiff  = localtime(&diffTime);
+      fprintf(gFpRecord,"%02d:%02d:%02d,",
+            pTmDiff->tm_hour - 1,  pTmDiff->tm_min,  pTmDiff->tm_sec);
+      pTmTotal = localtime(&gTotalTime);
       fprintf(gFpRecord,"%02d:%02d:%02d\n",
-            pTm->tm_hour - 1, pTm->tm_min, pTm->tm_sec);
+            pTmTotal->tm_hour - 1, pTmTotal->tm_min, pTmTotal->tm_sec);
    }
+   fflush(gFpRecord);
 }
 
 
@@ -193,18 +209,22 @@ static void output_state(GtkToggleButton *source, gpointer user_data)
 {
    if(gtk_toggle_button_get_active(source))
    {
+      /* Start pressed                                                  */
+      time(&gStartTime);
+      logtime(1);
+
+      /* Change the label                                               */
       gtk_button_set_label(GTK_BUTTON(source), (gchar *)"Stop");
       gtk_widget_set_name(GTK_WIDGET(source), "toggle_red");
-
-      time(&gStartTime);
-      logtime(1, gStartTime);
    }
    else
    {
-      time_t stopTime;
-      time(&stopTime);
-      gTotalTime += (stopTime - gStartTime);
-      logtime(0, stopTime);
+      /* Stop pressed                                                   */
+      time(&gStopTime);
+      gTotalTime += (gStopTime - gStartTime);
+      logtime(0);
+
+/*      printf("%d %d %d\n", (int)gStartTime, (int)gStopTime, (int)gTotalTime); */
       gtk_button_set_label(GTK_BUTTON(source), (gchar *)"Start");
       gtk_widget_set_name(GTK_WIDGET(source), "toggle_green");
    }
