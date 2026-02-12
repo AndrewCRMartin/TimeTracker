@@ -51,14 +51,15 @@
 /************************************************************************/
 /* Defines and macros
 */
+#define PROGNAME "TimeTracker"
 
 /************************************************************************/
 /* Globals
 */
 time_t gTotalTime = (time_t)0;
 time_t gStartTime;
-FILE *gFpRecord = NULL;
-CONFIG *gConfig = NULL;
+FILE   *gFpRecord = NULL;
+CONFIG *gConfig   = NULL;
 
 /************************************************************************/
 /* Prototypes
@@ -76,14 +77,25 @@ int main(int argc, char **argv)
 {
    GtkApplication *app;
    int status = 1;
-   char *fnm = "TimeTrackerRecord.csv";
-   static char *configFile = "timetracker.config";
+   char *fnm;
+   char *configFile = NULL;
+
+   if((configFile = getConfigFilePath(PROGNAME,
+                                      "timetracker.conf"))==NULL)
+   {
+      fprintf(stderr,"Error: Unable to create/access config directory\n");
+      return(1);
+   }
 
    if((gConfig = ReadOrCreateConfig(configFile))==NULL)
    {
       fprintf(stderr,"Error: Unable to read or create config file (%s)\n",
               configFile);
+      FREE(configFile);
+      return(1);
    }
+
+   FREE(configFile);
    
    /* Open the tracking file (append)                                   */
    if((fnm = getConfig(gConfig, "log"))==NULL)
@@ -99,7 +111,7 @@ int main(int argc, char **argv)
    {
       /* Read CSS info for colours                                      */
       gtk_init(&argc, &argv);
-      ReadCSS("timetracker.css");
+      ReadCSS(getConfig(gConfig, "css"));
       
       /* Create and name the application                                */
       app = gtk_application_new("org.acrm.timetracker",
@@ -115,7 +127,7 @@ int main(int argc, char **argv)
       g_object_unref(app);
       
       /* Log that we have closed the application                        */
-      fprintf(gFpRecord,"\"CLOSED\",,\n");
+      fprintf(gFpRecord,"\"CLOSED\",,,,\n");
       fclose(gFpRecord);
    }
    return status;
@@ -156,6 +168,8 @@ static void logtime(int state, time_t theTime)
    if(state)
    {
       printf("START: %s\n", tString);
+      fprintf(gFpRecord,"\"%s\",", getConfig(gConfig, "project"));
+      fprintf(gFpRecord,"\"%s\",", getConfig(gConfig, "task"));
       fprintf(gFpRecord,"\"%s\",", tString);
    }
    else
@@ -243,10 +257,20 @@ CONFIG *ReadOrCreateConfig(char *cfgFile)
    */
    if(config==NULL)
    {
+      char *cssFile = getConfigFilePath(PROGNAME, "timetracker.css");
+      
       config = setConfig(config, "project", "project");
       setConfig(config, "task", "task");
       setConfig(config, "log", "TimeTracker.csv");
-      setConfig(config, "css", "timetracker.css");
+      if(cssFile == NULL)
+      {
+         setConfig(config, "css", "timetracker.css");
+      }
+      else
+      {
+         setConfig(config, "css", cssFile);
+         FREE(cssFile);
+      }
    }
 
    if(missing)

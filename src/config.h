@@ -13,3 +13,5 @@ CONFIG *readConfig(char *cfgFile);
 CONFIG *setConfig(CONFIG *config, char *key, char *value);
 char *getConfig(CONFIG *config, char *key);
 int writeConfig(char *cfgFile, CONFIG *config);
+char *getConfigDirName(char *progName);
+char *getConfigFilePath(char *progName, char *filename);

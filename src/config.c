@@ -2,9 +2,55 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <sys/stat.h>
 #include "config.h"
 #include "bioplib/macros.h"
 
+
+/************************************************************************/
+/* malloc's the directory name, so needs to be freed
+ */
+char *getConfigDirName(char *progName)
+{
+   char *dirName = NULL;
+   char *home;
+   int  fileNameLen = 0;
+
+   home=getenv("HOME");
+   fileNameLen += strlen(home);
+   fileNameLen += strlen("/.config/");
+   fileNameLen += strlen(progName) + 1;
+   if((dirName = (char *)malloc(fileNameLen * sizeof(char)))!=NULL)
+   {
+      sprintf(dirName, "%s/.config/%s", home, progName);
+      if(access(dirName, F_OK))  /* Doesn't exist */
+         mkdir(dirName, 0755);
+   }
+
+   return(dirName);
+}
+
+/************************************************************************/
+/* malloc's the file path, so needs to be freed
+ */
+char *getConfigFilePath(char *progName, char *filename)
+{
+   char *filePath = NULL;
+   char *dirName;
+   int fileNameLen = 0;
+
+   if((dirName = getConfigDirName(progName)) != NULL)
+   {
+      fileNameLen += strlen(dirName);
+      fileNameLen += strlen(filename);
+      fileNameLen += 2; /* The / and the \0 */
+      if((filePath = (char *)malloc(fileNameLen * sizeof(char)))!=NULL)
+         sprintf(filePath, "%s/%s", dirName, filename);
+      FREE(dirName);
+   }
+
+   return(filePath);
+}
 
 /************************************************************************/
 CONFIG *readConfig(char *cfgFile)
