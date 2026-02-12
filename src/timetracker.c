@@ -1,0 +1,182 @@
+/************************************************************************/
+/**
+
+   Program:    TimeTracker
+   \file       timetracker.c
+   
+   \version    V0.1
+   \date       12.02.26   
+   \brief      Very simple time tracker
+   
+   \copyright  (c) Prof. Andrew C. R. Martin 2026
+   \author     Prof. Andrew C. R. Martin
+   \par
+               abYinformatics, Ltd
+   \par
+               andrew@abyinformatics.com
+               andrew@bioinf.org.uk
+               
+**************************************************************************
+
+   This program is licensed under the GNU Public Licence V3.0 or above
+
+**************************************************************************
+
+   Description:
+   ============
+   A very simple time tracker/stopwatch that logs times to a CSV file.
+   The intention is to add multiple named tasks
+   
+**************************************************************************
+
+   Usage:
+   ======
+   timetracker
+
+**************************************************************************
+
+   Revision History:
+   =================
+   V0.1    12.02.26  Initial version with just one button
+
+*************************************************************************/
+/* Includes
+*/
+#include <gtk/gtk.h>
+#include <time.h>
+#include <stdio.h>
+#include "bioplib/macros.h"
+
+/************************************************************************/
+/* Defines and macros
+*/
+
+/************************************************************************/
+/* Globals
+*/
+time_t gTotalTime = (time_t)0;
+time_t gStartTime;
+FILE *gFpRecord = NULL;
+
+/************************************************************************/
+/* Prototypes
+*/
+int main(int argc, char **argv);
+static void logtime(int state, time_t theTime);
+static void output_state(GtkToggleButton *source, gpointer user_data);
+static void activate(GtkApplication *app, gpointer user_data);
+
+
+
+
+/***********************************************************************/
+static void logtime(int state, time_t theTime)
+{
+   char *tString;
+   tString = ctime(&theTime);
+   TERMINATE(tString);
+
+   if(state)
+   {
+      printf("START: %s\n", tString);
+      fprintf(gFpRecord,"\"%s\",", tString);
+   }
+   else
+   {
+      struct tm *pTm;
+      pTm = localtime(&gTotalTime);
+
+      printf("STOP: %s; ", tString);
+      printf("TOTAL: %02d:%02d:%02d\n",
+            pTm->tm_hour - 1, pTm->tm_min, pTm->tm_sec);
+      
+      fprintf(gFpRecord,"\"%s\",", tString);
+      fprintf(gFpRecord,"%02d:%02d:%02d\n",
+            pTm->tm_hour - 1, pTm->tm_min, pTm->tm_sec);
+   }
+}
+
+
+/***********************************************************************/
+static void output_state(GtkToggleButton *source, gpointer user_data)
+{
+  if(gtk_toggle_button_get_active(source))
+  {
+     gtk_button_set_label(GTK_BUTTON(source), (gchar *)"Stop");
+     time(&gStartTime);
+     logtime(1, gStartTime);
+  }
+  else
+  {
+     time_t stopTime;
+     time(&stopTime);
+     gTotalTime += (stopTime - gStartTime);
+     logtime(0, stopTime);
+     gtk_button_set_label(GTK_BUTTON(source), (gchar *)"Start");
+  }
+}
+
+
+/***********************************************************************/
+static void activate(GtkApplication *app, gpointer user_data)
+{
+  GtkWidget *window;
+  GtkWidget *box, *toggle;
+
+  /* Create a window widget with title and size                        */
+  window = gtk_application_window_new(app);
+  gtk_window_set_title(GTK_WINDOW(window), "Time Tracker");
+  gtk_window_set_default_size(GTK_WINDOW(window), 100, 50);
+
+  box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
+
+  toggle = gtk_toggle_button_new_with_label("Start");
+
+  /* Makes this toggle button visible                                  */
+  gtk_toggle_button_set_mode(GTK_TOGGLE_BUTTON(toggle), FALSE);
+
+  /* Call the output_state() function when button is toggled           */
+  g_signal_connect(toggle, "toggled", G_CALLBACK(output_state), NULL);
+
+  /* Add the toggle to the box and then the box to the window          */
+  gtk_container_add(GTK_CONTAINER(box), toggle);
+  gtk_container_add(GTK_CONTAINER(window), box);
+
+  /* Show all the widgets                                              */
+  gtk_widget_show_all(window);
+}
+
+
+/***********************************************************************/
+int main(int argc, char **argv)
+{
+  GtkApplication *app;
+  int status = 1;
+  char *fnm = "TimeTrackerRecord.csv";
+
+  /* Open the tracking file (append)                                   */
+  if((gFpRecord = fopen(fnm, "a"))==NULL)
+  {
+     fprintf(stderr, "Unable to open time tracking file: %s\n", fnm);
+  }
+  else
+  {
+     /* Create and name the application                                */
+     app = gtk_application_new("org.acrm.timetracker",
+                                G_APPLICATION_DEFAULT_FLAGS);
+     
+     /* Connect the activate signal to the activate function           */
+     g_signal_connect(app, "activate", G_CALLBACK(activate), NULL);
+     
+     /* Run the application which will send the activate signal        */
+     status = g_application_run(G_APPLICATION(app), argc, argv);
+     
+     /* Free up the application resources                              */
+     g_object_unref(app);
+
+     /* Log that we have closed the application                        */
+     fprintf(gFpRecord,"\"CLOSED\",,\n");
+     fclose(gFpRecord);
+  }
+  return status;
+}
