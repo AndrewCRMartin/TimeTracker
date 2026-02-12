@@ -235,36 +235,37 @@ static void output_state(GtkToggleButton *source, gpointer user_data)
 static void activate(GtkApplication *app, gpointer user_data)
 {
    GtkWidget *window;
-   GtkWidget *box_ss,   *toggle_ss;
-   GtkWidget *box_quit, *btn_quit;
+   GtkWidget *grid;
+   GtkWidget *toggle_ss;
+   GtkWidget *btn_quit;
    
    /* Create a window widget with title and size                        */
    window = gtk_application_window_new(app);
    gtk_window_set_title(GTK_WINDOW(window), "Time Tracker");
    gtk_window_set_default_size(GTK_WINDOW(window), 100, 80);
 
+   /* Create a grid to contain the layout and add it to the window      */
+   grid = gtk_grid_new();
+   gtk_container_add(GTK_CONTAINER(window), grid);
+   
    /* Create the toggle box and button and all the output_state()
       function when button is toggled
    */ 
-   box_ss    = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
    toggle_ss = gtk_toggle_button_new_with_label("Start");
    g_signal_connect(toggle_ss, "toggled", G_CALLBACK(output_state), NULL);
    gtk_widget_set_name(toggle_ss, "toggle_green");
 
    /* Create the quit button and exit when it is clicked                */
-   box_quit = gtk_button_box_new(GTK_ORIENTATION_VERTICAL);
    btn_quit = gtk_button_new_with_label("Quit");
    g_signal_connect_swapped (btn_quit, "clicked",
                              G_CALLBACK(gtk_widget_destroy), window);
    gtk_widget_set_name(btn_quit, "btn_quit");
    
-   /* Add the toggle to the box and then the box to the window          */
-   gtk_container_add(GTK_CONTAINER(box_ss), toggle_ss);
-   gtk_container_add(GTK_CONTAINER(window), box_ss);
+   /* Add the toggle to the grid                                        */
+   gtk_grid_attach(GTK_GRID(grid), toggle_ss, 0,0,3,1);
 
    /* Add the quit button                                               */
-   gtk_container_add(GTK_CONTAINER(box_quit), btn_quit);
-   gtk_container_add(GTK_CONTAINER(window), box_quit);
+   gtk_grid_attach(GTK_GRID(grid), btn_quit, 1,1,1,1);
 
    /* Show all the widgets                                              */
    gtk_widget_show_all(window);

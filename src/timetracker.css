@@ -5,6 +5,8 @@
     font-style: normal;
     font-weight: bold;
     font-size: 20px;
+    min-width: 100px;
+    margin: 10px 2px;
 }
 #toggle_green {
     background: #118811;
@@ -13,4 +15,9 @@
     font-style: normal;
     font-weight: normal;
     font-size: 20px;
+    min-width: 100px;
+    margin: 10px 2px;
+}
+#btn_quit {
+    margin: 10px 2px;
 }
