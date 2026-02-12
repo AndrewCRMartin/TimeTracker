@@ -46,19 +46,11 @@
 #include <time.h>
 #include <stdio.h>
 #include "bioplib/macros.h"
+#include "config.h"
 
 /************************************************************************/
 /* Defines and macros
 */
-#define MAXKEY 20
-#define MAXVAL 160
-#define MAXBUFF 240
-typedef struct _config
-{
-   char key[MAXKEY],
-        value[MAXVAL];
-   struct _config *next;
-}  CONFIG;
 
 /************************************************************************/
 /* Globals
@@ -78,130 +70,6 @@ static void activate(GtkApplication *app, gpointer user_data);
 static void ReadCSS(char *cssFile);
 static CONFIG *ReadOrCreateConfig(char *cfgFile);
 
-
-/************************************************************************/
-static CONFIG *ReadOrCreateConfig(char *cfgFile)
-{
-   CONFIG *c      = NULL;
-   char   buffer[MAXBUFF],
-          *ptr;
-   FILE   *fp = NULL;
-   int    missing = 0;
-
-   /* If the config file exists, then read it                           */
-   if(!access(cfgFile, R_OK))
-   {
-      missing = 0;
-      if((fp=fopen(cfgFile, "r")) == NULL)
-      {
-         fprintf(stderr,"Error: Unable to read config file (%s)\n",
-                 cfgFile);
-      }
-      else
-      {
-         while(fgets(buffer, MAXBUFF, fp)!=NULL)
-         {
-            TERMINATE(buffer);
-            if(gConfig == NULL)
-            {
-               INIT(gConfig, CONFIG);
-               c = gConfig;
-            }
-            else
-            {
-               ALLOCNEXT(c, CONFIG);
-            }
-            if(c==NULL)
-            {
-               FREELIST(gConfig, CONFIG);
-               return(NULL);
-            }
-
-            /* If the line contains an = sign                           */
-            if((ptr = strchr(buffer, '='))!=NULL)
-            {
-               /* Copy from the next character into the value           */
-               strncpy(c->value, ptr+1, MAXVAL-1);
-               c->value[MAXVAL-1] = '\0';
-
-               /* Terminate at the = sign and copy the first part into
-                  the key
-               */
-               *ptr = '\0';
-               strncpy(c->key, buffer, MAXKEY-1);
-               c->key[MAXKEY-1] = '\0';
-            }
-         }
-         FCLOSE(fp);
-      }
-   }
-   else
-   {
-      missing = 1;
-   }
-
-   /* If the config linked list is still unpopuluated, populate with
-      defaults
-   */
-   if(gConfig==NULL)
-   {
-      INIT(gConfig, CONFIG);
-      c = gConfig;
-      if(c==NULL)
-      {
-         FREELIST(gConfig, CONFIG);
-         return(NULL);
-      }
-      strcpy(c->key,   "project");
-      strcpy(c->value, "project");
-      
-      ALLOCNEXT(c, CONFIG);
-      strcpy(c->key,   "task");
-      strcpy(c->value, "task");
-      
-      ALLOCNEXT(c, CONFIG);
-      strcpy(c->key,   "log");
-      strcpy(c->value, "TimeTracker.csv");
-      
-      ALLOCNEXT(c, CONFIG);
-      strcpy(c->key,   "css");
-      strcpy(c->value, "TimeTracker.css");
-   }
-
-   if(missing)
-   {
-      /* Config file doesn't exist, so create and write it              */
-      if((fp=fopen(cfgFile, "w"))==NULL)
-      {
-         fprintf(stderr, "Error: Unable to write config file (%s)\n",
-                 cfgFile);
-      }
-      else
-      {
-         for(c=gConfig; c!=NULL; NEXT(c))
-         {
-            fprintf(fp, "%s=%s\n", c->key, c->value);
-         }
-         FCLOSE(fp);
-      }
-   }
-
-   return(gConfig);
-}
-
-/************************************************************************/
-char *getConfig(CONFIG *config, char *key)
-{
-   CONFIG *c;
-   for(c=config; c!=NULL; NEXT(c))
-   {
-      if(!strcmp(c->key, key))
-      {
-         return(c->value);
-      }
-   }
-   return(NULL);
-}
 
 /************************************************************************/
 int main(int argc, char **argv)
@@ -356,4 +224,41 @@ static void activate(GtkApplication *app, gpointer user_data)
    gtk_widget_show_all(window);
 }
 
+
+/************************************************************************/
+CONFIG *ReadOrCreateConfig(char *cfgFile)
+{
+   CONFIG *config = NULL,
+          *c      = NULL;
+   char   buffer[CONFIG_MAXBUFF],
+          *ptr;
+   FILE   *fp = NULL;
+   int    missing = 0;
+
+   if((config = readConfig(cfgFile)) == NULL)
+      missing = 1;
+
+   /* If the config linked list is still unpopuluated, populate with
+      defaults
+   */
+   if(config==NULL)
+   {
+      config = setConfig(config, "project", "project");
+      setConfig(config, "task", "task");
+      setConfig(config, "log", "TimeTracker.csv");
+      setConfig(config, "css", "timetracker.css");
+   }
+
+   if(missing)
+   {
+      /* Config file doesn't exist, so create and write it              */
+      if(writeConfig(cfgFile, config)!=0)
+      {
+         fprintf(stderr, "Error: Unable to write config file (%s)\n",
+                 cfgFile);
+      }
+   }
+
+   return(config);
+}
 

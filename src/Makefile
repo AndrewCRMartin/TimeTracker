@@ -1,11 +1,15 @@
 COPT = -I $(HOME)/include
+OFILES = timetracker.o config.o
+CC = cc -g
 
-timetracker : timetracker.o
-	cc -o $@ $< `pkg-config --libs gtk+-3.0`
+timetracker : $(OFILES)
+	$(CC) -o $@ $(OFILES) `pkg-config --libs gtk+-3.0`
 
 test : test.o
-	cc -o $@ $< `pkg-config --libs gtk+-3.0`
+	$(CC) -o $@ $< `pkg-config --libs gtk+-3.0`
 
 .c.o : 
-	cc $(COPT) `pkg-config --cflags gtk+-3.0` -c -o $@ $<
+	$(CC) $(COPT) `pkg-config --cflags gtk+-3.0` -c -o $@ $<
 
+clean :
+	\rm $(OFILES)
