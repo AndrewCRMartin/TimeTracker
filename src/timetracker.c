@@ -39,6 +39,7 @@
    =================
    V0.1    12.02.26  Initial version with just one button
    V0.2    12.02.26  Added Quit button
+   V0.3    12.02.26  Added multiple projects
 
 *************************************************************************/
 /* Includes
