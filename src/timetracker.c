@@ -54,6 +54,8 @@
 /* Defines and macros
 */
 #define PROGNAME "TimeTracker"
+#define MAXPROJECTS 10
+#define MAXTASKS 10
 
 /************************************************************************/
 /* Globals
@@ -63,6 +65,11 @@ time_t gStartTime;
 time_t gStopTime;
 FILE   *gFpRecord = NULL;
 CONFIG *gConfig   = NULL;
+GtkWidget *gRadio_projects[MAXPROJECTS+1];
+GtkWidget *gRadio_tasks[MAXTASKS+1];
+GtkWidget *gLabel_currentProject = NULL;
+GtkWidget *gLabel_currentTask    = NULL;
+GtkWidget *gBtn_quit             = NULL;
 
 /************************************************************************/
 /* Prototypes
@@ -71,9 +78,15 @@ int main(int argc, char **argv);
 static void logtime(int state);
 static void output_state(GtkToggleButton *source, gpointer user_data);
 static void changeCurrentProject(GtkToggleButton *source, gpointer user_data);
+static void changeCurrentTask(GtkToggleButton *source, gpointer user_data);
 static void activate(GtkApplication *app, gpointer user_data);
 static void ReadCSS(char *cssFile);
 static CONFIG *ReadOrCreateConfig(char *cfgFile);
+static void DisableRadioButtons(GtkWidget **buttons);
+static void EnableRadioButtons(GtkWidget **buttons);
+static void SetActiveRadioButton(GtkWidget **buttons, char *theLabel);
+static void DisableButton(GtkWidget *button);
+static void EnableButton(GtkWidget *button);
 
 
 /************************************************************************/
@@ -263,6 +276,9 @@ static void output_state(GtkToggleButton *source, gpointer user_data)
       /* Change the label                                               */
       gtk_button_set_label(GTK_BUTTON(source), (gchar *)"Stop");
       gtk_widget_set_name(GTK_WIDGET(source), "toggle_red");
+      DisableRadioButtons(gRadio_projects);
+      DisableRadioButtons(gRadio_tasks);
+      DisableButton(gBtn_quit);
    }
    else
    {
@@ -273,6 +289,9 @@ static void output_state(GtkToggleButton *source, gpointer user_data)
 
       gtk_button_set_label(GTK_BUTTON(source), (gchar *)"Start");
       gtk_widget_set_name(GTK_WIDGET(source), "toggle_green");
+      EnableRadioButtons(gRadio_projects);
+      EnableRadioButtons(gRadio_tasks);
+      EnableButton(gBtn_quit);
    }
 }
 
@@ -288,30 +307,21 @@ void gtk_widget_add_css_class(GtkWidget *widget, char *class)
 }
 
 /************************************************************************/
-#define MAXPROJECTS 10
-#define MAXTASKS 10
 static void activate(GtkApplication *app, gpointer user_data)
 {
    GtkWidget *window;
    GtkWidget *grid;
    GtkWidget *toggle_ss;
-   GtkWidget *btn_quit;
 
-   GtkWidget *label_currentProject;
    char      *currentProject = NULL;
-
-   GtkWidget *radio_projects[MAXPROJECTS];
    int       nProjects       = 0;
 
-   GtkWidget *label_currentTask;
    char      *currentTask    = NULL;
-
-#ifdef TASKS
-   GtkWidget *label_tasks[MAXTASKS];
    int       nTasks          = 0;
-#endif
 
-   int row = 0, i;
+   int row  = 0,
+       trow = 0,
+       i;
    CONFIG    *c;
    
    /* Editable text
@@ -323,11 +333,16 @@ static void activate(GtkApplication *app, gpointer user_data)
       if((currentProject=getConfig(gConfig, "project"))!=NULL)
          gtk_text_buffer_set_text(buffer, currentProject, -1);
    */
+
+   /* Set to NULL so that we can find the last one used */
+   for(i=0; i<MAXPROJECTS+1; i++)
+      gRadio_projects[i] = NULL;
    
    /* Create a window widget with title and size                        */
    window = gtk_application_window_new(app);
    gtk_window_set_title(GTK_WINDOW(window), "Time Tracker");
    gtk_window_set_default_size(GTK_WINDOW(window), 100, 80);
+   gtk_window_set_deletable(GTK_WINDOW(window), FALSE);
 
    /* Create a grid to contain the layout and add it to the window      */
    grid = gtk_grid_new();
@@ -336,20 +351,20 @@ static void activate(GtkApplication *app, gpointer user_data)
    /* Create a text item containing the project name                    */
    if((currentProject = getConfig(gConfig, "currentproject"))!=NULL)
    {
-      label_currentProject = gtk_label_new(currentProject);
-      gtk_widget_set_name(GTK_WIDGET(label_currentProject),
+      gLabel_currentProject = gtk_label_new(currentProject);
+      gtk_widget_set_name(GTK_WIDGET(gLabel_currentProject),
                           "label_currentProject");
    }
    
    /* Create a text item containing the task name                       */
    if((currentTask = getConfig(gConfig, "currenttask"))!=NULL)
    {
-      label_currentTask = gtk_label_new(currentTask);
-      gtk_widget_set_name(GTK_WIDGET(label_currentTask),
+      gLabel_currentTask = gtk_label_new(currentTask);
+      gtk_widget_set_name(GTK_WIDGET(gLabel_currentTask),
                           "label_currentTask");
    }
    
-   /* Create text items for all projects                                */
+   /* Create radio buttons for all projects                             */
    if((c=getConfigPtr(gConfig, "project"))!=NULL)
    {
       GtkWidget *firstRadio = NULL;
@@ -360,38 +375,53 @@ static void activate(GtkApplication *app, gpointer user_data)
          {
             if(firstRadio == NULL)
             {
-               radio_projects[nProjects] = gtk_radio_button_new_with_label(NULL, m->value);
-               firstRadio = radio_projects[nProjects];
+               gRadio_projects[nProjects] = gtk_radio_button_new_with_label(NULL, m->value);
+               firstRadio = gRadio_projects[nProjects];
             }
             else
             {
-               radio_projects[nProjects] = gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(firstRadio), m->value);
+               gRadio_projects[nProjects] = gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(firstRadio), m->value);
             }
             gtk_widget_add_css_class(
-               GTK_WIDGET(radio_projects[nProjects]),
+               GTK_WIDGET(gRadio_projects[nProjects]),
                "project");
-            g_signal_connect(radio_projects[nProjects], "toggled", G_CALLBACK(changeCurrentProject), NULL);
+            g_signal_connect(gRadio_projects[nProjects], "toggled", G_CALLBACK(changeCurrentProject), NULL);
 
             nProjects++;
          }
       }
+      SetActiveRadioButton(gRadio_projects, currentProject);
    }
-
+#define TASKS
+   
 #ifdef TASKS
    /* Create text items for all tasks                                   */
    if((c=getConfigPtr(gConfig, "task"))!=NULL)
    {
+      GtkWidget *firstRadio = NULL;
       CONFIG_MVALUES *m;
       for(m=c->mvalues; m!=NULL; NEXT(m))
       {
          if(nTasks < MAXTASKS)
          {
-            label_tasks[nTasks] = gtk_label_new(m->value);
-            gtk_widget_add_css_class(GTK_WIDGET(label_tasks[nTasks]),
-                                     "task");
+            if(firstRadio == NULL)
+            {
+               gRadio_tasks[nTasks] = gtk_radio_button_new_with_label(NULL, m->value);
+               firstRadio = gRadio_tasks[nTasks];
+            }
+            else
+            {
+               gRadio_tasks[nTasks] = gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(firstRadio), m->value);
+            }
+            gtk_widget_add_css_class(
+               GTK_WIDGET(gRadio_tasks[nTasks]),
+               "task");
+            g_signal_connect(gRadio_tasks[nTasks], "toggled", G_CALLBACK(changeCurrentTask), NULL);
+
             nTasks++;
          }
       }
+      SetActiveRadioButton(gRadio_tasks, currentTask);
    }
 #endif
    
@@ -403,39 +433,41 @@ static void activate(GtkApplication *app, gpointer user_data)
    gtk_widget_set_name(toggle_ss, "toggle_green");
 
    /* Create the quit button and exit when it is clicked                */
-   btn_quit = gtk_button_new_with_label("Quit");
-   g_signal_connect_swapped (btn_quit, "clicked",
+   gBtn_quit = gtk_button_new_with_label("Quit");
+   g_signal_connect_swapped (gBtn_quit, "clicked",
                              G_CALLBACK(gtk_widget_destroy), window);
-   gtk_widget_set_name(btn_quit, "btn_quit");
+   gtk_widget_set_name(gBtn_quit, "btn_quit");
 
    /* Add the text to the grid                                          */
    gtk_grid_attach(GTK_GRID(grid),
-                   GTK_WIDGET(label_currentProject), 0,0,3,1);
+                   GTK_WIDGET(gLabel_currentProject), 0,0,3,1);
    gtk_grid_attach(GTK_GRID(grid),
-                   GTK_WIDGET(label_currentTask),    0,1,3,1);
+                   GTK_WIDGET(gLabel_currentTask),    0,1,3,1);
 
    /* Now the projects                                                  */
    row=2;
    for(i=0; i<nProjects; i++)
    {
       gtk_grid_attach(GTK_GRID(grid),
-                      GTK_WIDGET(radio_projects[i]),    0,row++,3,1);
+                      GTK_WIDGET(gRadio_projects[i]),    0,row++,1,1);
    }
 
-#ifdef TASKS
    /* and the tasks                                                     */
+   trow=2;
    for(i=0; i<nTasks; i++)
    {
       gtk_grid_attach(GTK_GRID(grid),
-                      GTK_WIDGET(label_tasks[i]),    0,row++,3,1);
+                      GTK_WIDGET(gRadio_tasks[i]),    1,trow++,1,1);
    }
-#endif
+
+   if(trow>row)
+      row=trow;
    
    /* Add the toggle to the grid                                        */
    gtk_grid_attach(GTK_GRID(grid), toggle_ss, 0,row++,3,1);
 
    /* Add the quit button                                               */
-   gtk_grid_attach(GTK_GRID(grid), btn_quit, 1,row++,1,1);
+   gtk_grid_attach(GTK_GRID(grid), gBtn_quit, 1,row++,1,1);
 
    /* Show all the widgets                                              */
    gtk_widget_show_all(window);
@@ -496,6 +528,60 @@ static void changeCurrentProject(GtkToggleButton *source, gpointer user_data)
       const char *label;
       label = gtk_button_get_label(GTK_BUTTON(source));
       setConfig(gConfig, "currentproject", (char *)label);
+      gtk_label_set_label (GTK_LABEL(gLabel_currentProject), label);
    }
 }
 
+static void changeCurrentTask(GtkToggleButton *source, gpointer user_data)
+{
+   if(gtk_toggle_button_get_active(source))
+   {
+      const char *label;
+      label = gtk_button_get_label(GTK_BUTTON(source));
+      setConfig(gConfig, "currenttask", (char *)label);
+      gtk_label_set_label (GTK_LABEL(gLabel_currentTask), label);
+   }
+}
+
+static void SetActiveRadioButton(GtkWidget **buttons, char *theLabel)
+{
+   int i=0;
+   for(i=0; buttons[i]!=NULL; i++)
+   {
+      const char *label;
+      label = gtk_button_get_label(GTK_BUTTON(buttons[i]));
+      if(!strcmp(label, theLabel))
+      {
+         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[i]), TRUE);
+         break;
+      }
+   }
+}
+
+static void DisableButton(GtkWidget *button)
+{
+   gtk_widget_set_sensitive(GTK_WIDGET(button), FALSE);
+}
+
+static void EnableButton(GtkWidget *button)
+{
+   gtk_widget_set_sensitive(GTK_WIDGET(button), TRUE);
+}
+
+static void DisableRadioButtons(GtkWidget **buttons)
+{
+   int i=0;
+   for(i=0; buttons[i]!=NULL; i++)
+   {
+      gtk_widget_set_sensitive(GTK_WIDGET(buttons[i]), FALSE);
+   }
+}
+
+static void EnableRadioButtons(GtkWidget **buttons)
+{
+   int i=0;
+   for(i=0; buttons[i]!=NULL; i++)
+   {
+      gtk_widget_set_sensitive(GTK_WIDGET(buttons[i]), TRUE);
+   }
+}
