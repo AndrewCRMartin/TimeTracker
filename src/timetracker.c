@@ -70,6 +70,7 @@ CONFIG *gConfig   = NULL;
 int main(int argc, char **argv);
 static void logtime(int state);
 static void output_state(GtkToggleButton *source, gpointer user_data);
+static void changeCurrentProject(GtkToggleButton *source, gpointer user_data);
 static void activate(GtkApplication *app, gpointer user_data);
 static void ReadCSS(char *cssFile);
 static CONFIG *ReadOrCreateConfig(char *cfgFile);
@@ -168,6 +169,7 @@ int main(int argc, char **argv)
       fclose(gFpRecord);
    }
 
+   writeConfig(configFile, gConfig);
    FREE(configFile);
    return status;
 }
@@ -350,26 +352,26 @@ static void activate(GtkApplication *app, gpointer user_data)
    /* Create text items for all projects                                */
    if((c=getConfigPtr(gConfig, "project"))!=NULL)
    {
-      GtkWidget *radio = NULL;
+      GtkWidget *firstRadio = NULL;
       CONFIG_MVALUES *m;
       for(m=c->mvalues; m!=NULL; NEXT(m))
       {
          if(nProjects < MAXPROJECTS)
          {
-            if(radio == NULL)
+            if(firstRadio == NULL)
             {
                radio_projects[nProjects] = gtk_radio_button_new_with_label(NULL, m->value);
-               radio = radio_projects[nProjects];
+               firstRadio = radio_projects[nProjects];
             }
             else
             {
-               radio_projects[nProjects] = gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(radio), m->value);
+               radio_projects[nProjects] = gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(firstRadio), m->value);
             }
             gtk_widget_add_css_class(
                GTK_WIDGET(radio_projects[nProjects]),
                "project");
-            
-            
+            g_signal_connect(radio_projects[nProjects], "toggled", G_CALLBACK(changeCurrentProject), NULL);
+
             nProjects++;
          }
       }
@@ -485,5 +487,15 @@ CONFIG *ReadOrCreateConfig(char *cfgFile)
    }
 
    return(config);
+}
+
+static void changeCurrentProject(GtkToggleButton *source, gpointer user_data)
+{
+   if(gtk_toggle_button_get_active(source))
+   {
+      const char *label;
+      label = gtk_button_get_label(GTK_BUTTON(source));
+      setConfig(gConfig, "currentproject", (char *)label);
+   }
 }
 
