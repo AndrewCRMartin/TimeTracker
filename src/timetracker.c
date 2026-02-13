@@ -204,22 +204,18 @@ static void logtime(int state)
 
    if(state)   /* Start was pressed                                     */
    {
-      char *projects = NULL;
-      char *tasks    = NULL;
+      char *project = NULL;
+      char *task    = NULL;
 
       tString = ctime(&gStartTime);
       TERMINATE(tString);
       printf("START: %s\n", tString);
-      if((projects = getConfigMulti(gConfig, "project"))!=NULL)
-      {
-         fprintf(gFpRecord,"\"%s\",", projects);
-         FREE(projects);
-      }
-      if((tasks    = getConfigMulti(gConfig, "task"))!=NULL)
-      {
-         fprintf(gFpRecord,"\"%s\",", tasks);
-         FREE(tasks);
-      }
+      if((project = getConfig(gConfig, "currentproject"))!=NULL)
+         fprintf(gFpRecord,"\"%s\",", project);
+
+      if((task    = getConfig(gConfig, "currenttask"))!=NULL)
+         fprintf(gFpRecord,"\"%s\",", task);
+
       fprintf(gFpRecord,"\"%s\",", tString);
    }
    else        /* Stop was pressed                                      */
@@ -300,8 +296,9 @@ static void activate(GtkApplication *app, gpointer user_data)
    GtkWidget *btn_quit;
 
    GtkWidget *label_currentProject;
-   GtkWidget *label_projects[MAXPROJECTS];
    char      *currentProject = NULL;
+
+   GtkWidget *radio_projects[MAXPROJECTS];
    int       nProjects       = 0;
 
    GtkWidget *label_currentTask;
@@ -353,15 +350,25 @@ static void activate(GtkApplication *app, gpointer user_data)
    /* Create text items for all projects                                */
    if((c=getConfigPtr(gConfig, "project"))!=NULL)
    {
+      GtkWidget *radio = NULL;
       CONFIG_MVALUES *m;
       for(m=c->mvalues; m!=NULL; NEXT(m))
       {
          if(nProjects < MAXPROJECTS)
          {
-            label_projects[nProjects] = gtk_label_new(m->value);
+            if(radio == NULL)
+            {
+               radio_projects[nProjects] = gtk_radio_button_new_with_label(NULL, m->value);
+               radio = radio_projects[nProjects];
+            }
+            else
+            {
+               radio_projects[nProjects] = gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(radio), m->value);
+            }
             gtk_widget_add_css_class(
-               GTK_WIDGET(label_projects[nProjects]),
+               GTK_WIDGET(radio_projects[nProjects]),
                "project");
+            
             
             nProjects++;
          }
@@ -410,7 +417,7 @@ static void activate(GtkApplication *app, gpointer user_data)
    for(i=0; i<nProjects; i++)
    {
       gtk_grid_attach(GTK_GRID(grid),
-                      GTK_WIDGET(label_projects[i]),    0,row++,3,1);
+                      GTK_WIDGET(radio_projects[i]),    0,row++,3,1);
    }
 
 #ifdef TASKS
