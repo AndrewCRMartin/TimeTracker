@@ -19,8 +19,11 @@ typedef struct _config
 /************************************************************************/
 CONFIG *readConfig(char *cfgFile);
 CONFIG *setConfig(CONFIG *config, char *key, char *value);
+CONFIG *getConfigPtr(CONFIG *config, char *key);
 char *getConfig(CONFIG *config, char *key);
+char *getConfigMulti(CONFIG *config, char *key);
 int writeConfig(char *cfgFile, CONFIG *config);
 char *getConfigDirName(char *progName);
 char *getConfigFilePath(char *progName, char *filename);
 CONFIG *gotConfigKey(CONFIG *config, char *key);
+CONFIG *setConfigMulti(CONFIG *config, char *key, char *value);

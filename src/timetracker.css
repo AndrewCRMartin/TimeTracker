@@ -21,17 +21,32 @@
 #btn_quit {
     margin: 0px 2px 10px 2px;
 }
-#label_project {
+#label_currentProject {
     font-family: DejaVu Sans, sans-serif;
     font-style: normal;
     font-weight: bold;
     font-size: 12px;
-    margin: 10px 2px;
+    margin: 10px 2px 2px 2px;
 }
-#label_task {
+#label_currentTask {
     font-family: DejaVu Sans, sans-serif;
     font-style: normal;
     font-weight: normal;
     font-size: 10px;
     margin: 0px 2px 5px 2px;
+    border-bottom: 1px solid black;
+}
+.project {
+    font-family: DejaVu Sans, sans-serif;
+    font-style: normal;
+    font-weight: normal;
+    font-size: 8px;
+    margin: 0px 0px 1px 0px;
+}
+.task {
+    font-family: DejaVu Sans, sans-serif;
+    font-style: normal;
+    font-weight: normal;
+    font-size: 6px;
+    margin: 0px 0px 1px 0px;
 }

@@ -79,7 +79,8 @@ static CONFIG *ReadOrCreateConfig(char *cfgFile);
 int main(int argc, char **argv)
 {
    GtkApplication *app;
-   int status = 1;
+   int  status = 1,
+        configChanged = 0;
    char *fnm;
    char *configFile = NULL;
 
@@ -98,8 +99,41 @@ int main(int argc, char **argv)
       return(1);
    }
 
-   FREE(configFile);
+   /* If the config doesn't have a current project/task, then set those
+      to the first ones in the lists or to Undefined if there is no
+      list/value
+   */
+   if(getConfig(gConfig, "currentproject") == NULL)
+   {
+      CONFIG *c;
+      if(((c=getConfigPtr(gConfig, "project"))!=NULL) &&
+         c->mvalues != NULL)
+         setConfig(gConfig, "currentproject", c->mvalues->value);
+      else if(c!=NULL)
+         setConfig(gConfig, "currentproject", c->value);
+      else 
+         setConfig(gConfig, "currentproject", "Undefined");
+
+      configChanged = 1;
+   }
+
+   if(getConfig(gConfig, "currenttask") == NULL)
+   {
+      CONFIG *c;
+      if(((c=getConfigPtr(gConfig, "task"))!=NULL) &&
+         c->mvalues != NULL)
+         setConfig(gConfig, "currenttask", c->mvalues->value);
+      else if(c!=NULL)
+         setConfig(gConfig, "currenttask", c->value);
+      else
+         setConfig(gConfig, "currenttask", "Undefined");
+
+      configChanged = 1;
+   }
    
+   if(configChanged)
+      writeConfig(configFile, gConfig);
+
    /* Open the tracking file (append)                                   */
    if((fnm = getConfig(gConfig, "log"))==NULL)
    {
@@ -133,6 +167,8 @@ int main(int argc, char **argv)
       fprintf(gFpRecord,"\"CLOSED\",,,,\n");
       fclose(gFpRecord);
    }
+
+   FREE(configFile);
    return status;
 }
 
@@ -168,11 +204,22 @@ static void logtime(int state)
 
    if(state)   /* Start was pressed                                     */
    {
+      char *projects = NULL;
+      char *tasks    = NULL;
+
       tString = ctime(&gStartTime);
       TERMINATE(tString);
       printf("START: %s\n", tString);
-      fprintf(gFpRecord,"\"%s\",", getConfig(gConfig, "project"));
-      fprintf(gFpRecord,"\"%s\",", getConfig(gConfig, "task"));
+      if((projects = getConfigMulti(gConfig, "project"))!=NULL)
+      {
+         fprintf(gFpRecord,"\"%s\",", projects);
+         FREE(projects);
+      }
+      if((tasks    = getConfigMulti(gConfig, "task"))!=NULL)
+      {
+         fprintf(gFpRecord,"\"%s\",", tasks);
+         FREE(tasks);
+      }
       fprintf(gFpRecord,"\"%s\",", tString);
    }
    else        /* Stop was pressed                                      */
@@ -233,14 +280,40 @@ static void output_state(GtkToggleButton *source, gpointer user_data)
 
 
 /************************************************************************/
+/* Mimics the GTK4 function
+ */
+void gtk_widget_add_css_class(GtkWidget *widget, char *class)
+{
+   GtkStyleContext *context;
+   context = gtk_widget_get_style_context(GTK_WIDGET(widget));
+   gtk_style_context_add_class(context, class);
+}
+
+/************************************************************************/
+#define MAXPROJECTS 10
+#define MAXTASKS 10
 static void activate(GtkApplication *app, gpointer user_data)
 {
    GtkWidget *window;
    GtkWidget *grid;
    GtkWidget *toggle_ss;
    GtkWidget *btn_quit;
-   GtkWidget *label_project;
-   GtkWidget *label_task;
+
+   GtkWidget *label_currentProject;
+   GtkWidget *label_projects[MAXPROJECTS];
+   char      *currentProject = NULL;
+   int       nProjects       = 0;
+
+   GtkWidget *label_currentTask;
+   char      *currentTask    = NULL;
+
+#ifdef TASKS
+   GtkWidget *label_tasks[MAXTASKS];
+   int       nTasks          = 0;
+#endif
+
+   int row = 0, i;
+   CONFIG    *c;
    
    /* Editable text
       GtkWidget *view;
@@ -248,7 +321,8 @@ static void activate(GtkApplication *app, gpointer user_data)
 
       view   = gtk_text_view_new();
       buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(view));
-      gtk_text_buffer_set_text(buffer, getConfig(gConfig, "project"), -1);
+      if((currentProject=getConfig(gConfig, "project"))!=NULL)
+         gtk_text_buffer_set_text(buffer, currentProject, -1);
    */
    
    /* Create a window widget with title and size                        */
@@ -261,12 +335,56 @@ static void activate(GtkApplication *app, gpointer user_data)
    gtk_container_add(GTK_CONTAINER(window), grid);
 
    /* Create a text item containing the project name                    */
-   label_project = gtk_label_new(getConfig(gConfig, "project"));
-   gtk_widget_set_name(GTK_WIDGET(label_project), "label_project");
+   if((currentProject = getConfig(gConfig, "currentproject"))!=NULL)
+   {
+      label_currentProject = gtk_label_new(currentProject);
+      gtk_widget_set_name(GTK_WIDGET(label_currentProject),
+                          "label_currentProject");
+   }
    
    /* Create a text item containing the task name                       */
-   label_task = gtk_label_new(getConfig(gConfig, "task"));
-   gtk_widget_set_name(GTK_WIDGET(label_task), "label_task");
+   if((currentTask = getConfig(gConfig, "currenttask"))!=NULL)
+   {
+      label_currentTask = gtk_label_new(currentTask);
+      gtk_widget_set_name(GTK_WIDGET(label_currentTask),
+                          "label_currentTask");
+   }
+   
+   /* Create text items for all projects                                */
+   if((c=getConfigPtr(gConfig, "project"))!=NULL)
+   {
+      CONFIG_MVALUES *m;
+      for(m=c->mvalues; m!=NULL; NEXT(m))
+      {
+         if(nProjects < MAXPROJECTS)
+         {
+            label_projects[nProjects] = gtk_label_new(m->value);
+            gtk_widget_add_css_class(
+               GTK_WIDGET(label_projects[nProjects]),
+               "project");
+            
+            nProjects++;
+         }
+      }
+   }
+
+#ifdef TASKS
+   /* Create text items for all tasks                                   */
+   if((c=getConfigPtr(gConfig, "task"))!=NULL)
+   {
+      CONFIG_MVALUES *m;
+      for(m=c->mvalues; m!=NULL; NEXT(m))
+      {
+         if(nTasks < MAXTASKS)
+         {
+            label_tasks[nTasks] = gtk_label_new(m->value);
+            gtk_widget_add_css_class(GTK_WIDGET(label_tasks[nTasks]),
+                                     "task");
+            nTasks++;
+         }
+      }
+   }
+#endif
    
    /* Create the toggle box and button and add the output_state()
       function when button is toggled
@@ -282,14 +400,33 @@ static void activate(GtkApplication *app, gpointer user_data)
    gtk_widget_set_name(btn_quit, "btn_quit");
 
    /* Add the text to the grid                                          */
-   gtk_grid_attach(GTK_GRID(grid), GTK_WIDGET(label_project), 0,0,3,1);
-   gtk_grid_attach(GTK_GRID(grid), GTK_WIDGET(label_task),    0,1,3,1);
+   gtk_grid_attach(GTK_GRID(grid),
+                   GTK_WIDGET(label_currentProject), 0,0,3,1);
+   gtk_grid_attach(GTK_GRID(grid),
+                   GTK_WIDGET(label_currentTask),    0,1,3,1);
+
+   /* Now the projects                                                  */
+   row=2;
+   for(i=0; i<nProjects; i++)
+   {
+      gtk_grid_attach(GTK_GRID(grid),
+                      GTK_WIDGET(label_projects[i]),    0,row++,3,1);
+   }
+
+#ifdef TASKS
+   /* and the tasks                                                     */
+   for(i=0; i<nTasks; i++)
+   {
+      gtk_grid_attach(GTK_GRID(grid),
+                      GTK_WIDGET(label_tasks[i]),    0,row++,3,1);
+   }
+#endif
    
    /* Add the toggle to the grid                                        */
-   gtk_grid_attach(GTK_GRID(grid), toggle_ss, 0,2,3,1);
+   gtk_grid_attach(GTK_GRID(grid), toggle_ss, 0,row++,3,1);
 
    /* Add the quit button                                               */
-   gtk_grid_attach(GTK_GRID(grid), btn_quit, 1,3,1,1);
+   gtk_grid_attach(GTK_GRID(grid), btn_quit, 1,row++,1,1);
 
    /* Show all the widgets                                              */
    gtk_widget_show_all(window);

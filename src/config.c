@@ -1,3 +1,4 @@
+/* #define TEST 1 */
 /* Simple config file reading */
 #include <stdio.h>
 #include <string.h>
@@ -80,45 +81,14 @@ CONFIG *readConfig(char *cfgFile)
          {
             TERMINATE(buffer);
 
-            if((ptr = strchr(buffer, '='))!=NULL)
+            if(((ptr = strchr(buffer, '+'))!=NULL) &&
+               (*(ptr+1) == '='))
             {
-               /* If the line contains an = sign, we have a single value*/
-
-               /* Allocate item in linked list                          */
-               if(config == NULL)
-               {
-                  INIT(config, CONFIG);
-                  c = config;
-               }
-               else
-               {
-                  ALLOCNEXT(c, CONFIG);
-               }
-               if(c==NULL)
-               {
-                  FREELIST(config, CONFIG);
-                  return(NULL);
-               }
-               c->mvalues = NULL;
-               
-               /* Copy from the next character into the value           */
-               strncpy(c->value, ptr+1, CONFIG_MAXVAL-1);
-               c->value[CONFIG_MAXVAL-1] = '\0';
-
-               /* Terminate at the = sign and copy the first part into
-                  the key
-               */
-               *ptr = '\0';
-               strncpy(c->key, buffer, CONFIG_MAXKEY-1);
-               c->key[CONFIG_MAXKEY-1] = '\0';
-            }
-            else if((ptr = strchr(buffer, '<'))!=NULL)
-            {
-               /* If the line contains a < sign, we have multiple values*/
+               /* If the line contains += sign, we have multiple values */
                CONFIG_MVALUES *m;
 
                /* Copy from the next character into the value           */
-               strncpy(value, ptr+1, CONFIG_MAXVAL-1);
+               strncpy(value, ptr+2, CONFIG_MAXVAL-1);
                value[CONFIG_MAXVAL-1] = '\0';
 
                /* Terminate at the < sign and copy the first part into
@@ -169,6 +139,38 @@ CONFIG *readConfig(char *cfgFile)
                   strcpy(c->key, key);
                   strcpy(m->value, value);
                }
+            }
+            else if((ptr = strchr(buffer, '='))!=NULL)
+            {
+               /* If the line contains an = sign, we have a single value*/
+
+               /* Allocate item in linked list                          */
+               if(config == NULL)
+               {
+                  INIT(config, CONFIG);
+                  c = config;
+               }
+               else
+               {
+                  ALLOCNEXT(c, CONFIG);
+               }
+               if(c==NULL)
+               {
+                  FREELIST(config, CONFIG);
+                  return(NULL);
+               }
+               c->mvalues = NULL;
+               
+               /* Copy from the next character into the value           */
+               strncpy(c->value, ptr+1, CONFIG_MAXVAL-1);
+               c->value[CONFIG_MAXVAL-1] = '\0';
+
+               /* Terminate at the = sign and copy the first part into
+                  the key
+               */
+               *ptr = '\0';
+               strncpy(c->key, buffer, CONFIG_MAXKEY-1);
+               c->key[CONFIG_MAXKEY-1] = '\0';
             }
          }
          FCLOSE(fp);
@@ -228,11 +230,88 @@ CONFIG *setConfig(CONFIG *config, char *key, char *value)
       return(NULL);
    }
 
+   c->mvalues = NULL;
    strcpy(c->key,   key);
    strcpy(c->value, value);
    
    return(c);
 }
+
+/************************************************************************/
+CONFIG *setConfigMulti(CONFIG *config, char *key, char *value)
+{
+   CONFIG         *c       = NULL;
+   CONFIG_MVALUES *m       = NULL;
+
+   /* Search for this key                                               */
+   c = getConfigPtr(config, key);
+
+   /* If we didn't find it                                              */
+   if(c==NULL)
+   {
+      /* Add the key                                                    */
+      if(config==NULL)
+      {
+         INIT(config, CONFIG);
+         c = config;
+      }
+      else
+      {
+         c = config;
+         LAST(c);
+         ALLOCNEXT(c, CONFIG);
+      }
+
+      /* No memory                                                      */
+      if(c==NULL)
+      {
+         FREELIST(config, CONFIG);
+         return(NULL);
+      }
+
+      /* Initialize                                                     */
+      strcpy(c->key,   key);
+      c->value[0] = '\0';
+      c->mvalues  = NULL;
+   }
+
+   /* Copy the value into mvalues                                       */
+   if(c->mvalues==NULL)
+   {
+      INIT(c->mvalues, CONFIG_MVALUES);
+      m = c->mvalues;
+   }
+   else
+   {
+      m = c->mvalues;
+      LAST(m);
+      ALLOCNEXT(m, CONFIG_MVALUES);
+   }
+   if(m==NULL)
+   {
+      FREELIST(c->mvalues, CONFIG_MVALUES);
+      FREELIST(config, CONFIG);
+      return(NULL);
+   }
+   strcpy(m->value, value);
+   
+   return(c);
+}
+
+/************************************************************************/
+CONFIG *getConfigPtr(CONFIG *config, char *key)
+{
+   CONFIG *c;
+   for(c=config; c!=NULL; NEXT(c))
+   {
+      if(!strcmp(c->key, key))
+      {
+         return(c);
+      }
+   }
+   return(NULL);
+}
+
 
 /************************************************************************/
 char *getConfig(CONFIG *config, char *key)
@@ -271,6 +350,58 @@ char *getConfig(CONFIG *config, char *key)
 }
 
 /************************************************************************/
+/* This is exactly the same as getConfig() (which can also handle multiple
+   values), but allocates space when we have a single value rather than
+   just returning the string from the config linked list, making it
+   easier to handle returns as we will always have to free the returned
+   value
+*/
+char *getConfigMulti(CONFIG *config, char *key)
+{
+   CONFIG *c;
+   char *multi = NULL;
+   for(c=config; c!=NULL; NEXT(c))
+   {
+      if(!strcmp(c->key, key))
+      {
+         if(c->mvalues == NULL) /* We have a single value               */
+         {
+            char *c1;
+            if((c1 = (char *)malloc((1+strlen(c->value)) *
+                                    sizeof(char)))!=NULL)
+            {
+               strcpy(c1, c->value);
+               return(c1);
+            }
+            else
+            {
+               return(NULL);
+            }
+         }
+         else  /* We have multiple values                               */
+         {
+            CONFIG_MVALUES *m;
+            int totalLength = 0;
+            /* Calculate the total length and allocate memory           */
+            for(m=c->mvalues; m!=NULL; NEXT(m))
+               totalLength += strlen(m->value) + 1;
+            multi = (char *)malloc(totalLength+1 + sizeof(char));
+            multi[0] = '\0';
+            /* Create a | separated list as a string                    */
+            for(m=c->mvalues; m!=NULL; NEXT(m))
+            {
+               strcat(multi, m->value);
+               if(m->next != NULL)
+                  strcat(multi, "|");
+            }
+            return(multi);
+         }
+      }
+   }
+   return(NULL);
+}
+
+/************************************************************************/
 int writeConfig(char *cfgFile, CONFIG *config)
 {
    CONFIG *c;
@@ -284,7 +415,16 @@ int writeConfig(char *cfgFile, CONFIG *config)
    {
       for(c=config; c!=NULL; NEXT(c))
       {
-         fprintf(fp, "%s=%s\n", c->key, c->value);
+         if(c->mvalues == NULL)
+         {
+            fprintf(fp, "%s=%s\n", c->key, c->value);
+         }
+         else
+         {
+            CONFIG_MVALUES *m;
+            for(m=c->mvalues; m!=NULL; NEXT(m))
+               fprintf(fp, "%s+=%s\n", c->key, m->value);
+         }
       }
       FCLOSE(fp);
    }
@@ -299,6 +439,7 @@ int main(int argc, char **argv)
    char *multi;
    
    config = readConfig("./t/test.conf");
+   printf("Showing all values\n");
    for(c=config; c!=NULL; NEXT(c))
    {
       if(c->mvalues)
@@ -306,18 +447,73 @@ int main(int argc, char **argv)
          CONFIG_MVALUES *m;
          for(m=c->mvalues; m!=NULL; NEXT(m))
          {
-            printf("%s : %s\n", c->key, m->value);
+            printf("   %s : %s\n", c->key, m->value);
          }
       }
       else
       {
-         printf("%s : %s\n", c->key, c->value);
+         printf("   %s : %s\n", c->key, c->value);
       }
    }
 
-   printf("vala : %s\n", getConfig(config, "vala"));
-   multi = getConfig(config, "multi");
-   printf("multi : %s\n", multi);
+   printf("\nReading named values\n");
+   printf("   getConfig() vala : %s\n", getConfig(config, "vala"));
+   if((multi = getConfigMulti(config, "vala"))!=NULL)
+   {
+      printf("   getConfigMulti() vala : %s\n", multi);
+      FREE(multi);
+   }
+
+   if((multi = getConfig(config, "multi"))!=NULL)
+   {
+      printf("   multi : %s\n", multi);
+      FREE(multi);
+   }
+
+   printf("\nReading named values by pointer\n");
+   if((c=getConfigPtr(config, "vala"))!=NULL)
+      printf("   getConfigPtr() vala : %s\n", c->value);
+   if((c=getConfigPtr(config, "multi"))!=NULL)
+   {
+      CONFIG_MVALUES *m;
+      for(m=c->mvalues; m!=NULL; NEXT(m))
+         printf("   getConfigPtr() multi : %s\n", m->value);
+   }
+
+   printf("\nAdding new key/value (newkey/newval)\n");
+   setConfig(config, "newkey", "newval");
+   printf("Reading new value\n");
+   printf("   getConfig() newkey : %s\n", getConfig(config, "newkey"));
+   
+   printf("\nAdding new multi key/value (newmulti: newm1/newm2/newm3)\n");
+   setConfigMulti(config, "newmulti", "newm1");
+   setConfigMulti(config, "newmulti", "newm2");
+   setConfigMulti(config, "newmulti", "newm3");
+   printf("Reading new values\n");
+   for(c=config; c!=NULL; NEXT(c))
+   {
+      if(c->mvalues)
+      {
+         CONFIG_MVALUES *m;
+         for(m=c->mvalues; m!=NULL; NEXT(m))
+         {
+            printf("   %s : %s\n", c->key, m->value);
+         }
+      }
+      else
+      {
+         printf("   %s : %s\n", c->key, c->value);
+      }
+   }
+
+/*
+
+   if((multi = getConfig(config, "newmulti"))!=NULL)
+   {
+      printf("   getConfig() newmulti : %s\n", multi);
+      FREE(multi);
+   }
+*/
    return(0);
 }
 #endif
