@@ -54,8 +54,6 @@ char *getConfigFilePath(char *progName, char *filename)
 }
 
 
-
-
 /************************************************************************/
 CONFIG *readConfig(char *cfgFile)
 {
@@ -237,6 +235,7 @@ CONFIG *setConfig(CONFIG *config, char *key, char *value)
    return(c);
 }
 
+
 /************************************************************************/
 CONFIG *setConfigMulti(CONFIG *config, char *key, char *value)
 {
@@ -298,6 +297,7 @@ CONFIG *setConfigMulti(CONFIG *config, char *key, char *value)
    return(c);
 }
 
+
 /************************************************************************/
 CONFIG *getConfigPtr(CONFIG *config, char *key)
 {
@@ -348,6 +348,7 @@ char *getConfig(CONFIG *config, char *key)
    }
    return(NULL);
 }
+
 
 /************************************************************************/
 /* This is exactly the same as getConfig() (which can also handle multiple
@@ -401,6 +402,7 @@ char *getConfigMulti(CONFIG *config, char *key)
    return(NULL);
 }
 
+
 /************************************************************************/
 int writeConfig(char *cfgFile, CONFIG *config)
 {
@@ -432,6 +434,8 @@ int writeConfig(char *cfgFile, CONFIG *config)
    return(0);
 }
 
+
+/************************************************************************/
 #ifdef TEST
 int main(int argc, char **argv)
 {
