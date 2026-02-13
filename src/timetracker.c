@@ -89,7 +89,7 @@ static void EnableRadioButtons(GtkWidget **buttons);
 static void SetActiveRadioButton(GtkWidget **buttons, char *theLabel);
 static void DisableButton(GtkWidget *button);
 static void EnableButton(GtkWidget *button);
-static void gtk_widget_add_css_class(GtkWidget *widget, char *class)
+static void gtk_widget_add_css_class(GtkWidget *widget, char *class);
 
 
 /************************************************************************/
